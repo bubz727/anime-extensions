@@ -218,8 +218,9 @@ class OtakuDesu :
     private val vidHideExtractor by lazy { VidHideExtractor(client, headers) }
 
     private suspend fun getVideosFromEmbed(quality: String, link: String): List<Video> = when {
-        "filelions" in link -> {
-            filelionsExtractor.videosFromUrl(link, videoNameGen = { "FileLions - $it" })
+        "filelions" in link || "filedon" in link -> {
+            val name = if ("filedon" in link) "Filedon" else "FileLions"
+            filelionsExtractor.videosFromUrl(link, videoNameGen = { "$name - $quality" })
         }
 
         "yourupload" in link -> {
