@@ -166,11 +166,11 @@ class OtakuDesu :
 
     override fun videoListParse(response: Response): List<Video> {
         val doc = response.useAsJsoup()
-        val script = doc.selectFirst("script:containsData({action:)")!!
-            .data()
+        val script = doc.selectFirst("script:containsData(window.__x__nonce)")?.data()
+            ?: throw Exception("Failed to find script")
 
-        val nonceAction = script.substringAfter("{action:\"").substringBefore('"')
-        val action = script.substringAfter("action:\"").substringBefore('"')
+        val action = script.substringAfter("nonce:window.__x__nonce,action:\"").substringBefore('"')
+        val nonceAction = script.substringAfter("data:{action:\"").substringBefore('"')
 
         val nonce = getNonce(nonceAction)
 
@@ -231,11 +231,19 @@ class OtakuDesu :
         "desustream" in link -> {
             client.newCall(GET(link, headers)).awaitSuccess().let {
                 val doc = it.useAsJsoup()
-                val script = doc.selectFirst("script:containsData(sources)")!!.data()
-                val videoUrl = script.substringAfter("sources:[{")
-                    .substringAfter("file':'")
-                    .substringBefore("'")
-                listOf(Video(videoUrl, "DesuStream - $quality", videoUrl, headers))
+                val source = doc.selectFirst("source")
+                if (source != null) {
+                    val videoUrl = source.attr("src")
+                    listOf(Video(videoUrl, "DesuStream - $quality", videoUrl, headers))
+                } else {
+                    val script = doc.selectFirst("script:containsData(playerjs)")?.data()
+                    if (script != null) {
+                        val videoUrl = script.substringAfter("file:\"").substringBefore("\"")
+                        listOf(Video(videoUrl, "Odstream - $quality", videoUrl, headers))
+                    } else {
+                        emptyList()
+                    }
+                }
             }
         }
 
@@ -249,7 +257,7 @@ class OtakuDesu :
         }
 
         "vidhide" in link -> {
-            vidHideExtractor.videosFromUrl(link)
+            vidHideExtractor.videosFromUrl(link, { "Vidhide - $quality" })
         }
 
         else -> emptyList()
