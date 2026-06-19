@@ -220,9 +220,21 @@ class OtakuDesu :
     private val bloggerExtractor by lazy { BloggerExtractor(client) }
 
     private suspend fun getVideosFromEmbed(quality: String, link: String): List<Video> = when {
-        "filelions" in link || "filedon" in link -> {
-            val name = if ("filedon" in link) "Filedon" else "FileLions"
-            filelionsExtractor.videosFromUrl(link, videoNameGen = { "$name - $quality" })
+        "filelions" in link -> {
+            filelionsExtractor.videosFromUrl(link, videoNameGen = { "FileLions - $quality" })
+        }
+
+        "filedon" in link -> {
+            client.newCall(GET(link, headers)).awaitSuccess().let {
+                val doc = it.useAsJsoup()
+                val dataPage = doc.selectFirst("div#app")?.attr("data-page")
+                if (dataPage != null) {
+                    val videoUrl = dataPage.substringAfter("\"url\":\"").substringBefore("\"").replace("\\/", "/")
+                    if (videoUrl.startsWith("http")) {
+                        listOf(Video(videoUrl, "Filedon - $quality", videoUrl, headers))
+                    } else emptyList()
+                } else emptyList()
+            }
         }
 
         "yourupload" in link -> {
@@ -271,7 +283,9 @@ class OtakuDesu :
                     bloggerExtractor.videosFromUrl(iframeSrc, headers).map { video ->
                         Video(video.url, "Ondesu - ${video.quality.substringAfter("Blogger - ")}", video.videoUrl, video.headers)
                     }
-                } else emptyList()
+                } else {
+                    emptyList()
+                }
             }
         }
 
