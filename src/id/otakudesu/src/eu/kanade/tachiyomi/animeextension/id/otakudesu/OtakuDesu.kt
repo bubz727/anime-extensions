@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.animeextension.id.otakudesu
 import android.util.Base64
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
+import aniyomi.lib.bloggerextractor.BloggerExtractor
 import aniyomi.lib.streamwishextractor.StreamWishExtractor
 import aniyomi.lib.vidhideextractor.VidHideExtractor
 import aniyomi.lib.youruploadextractor.YourUploadExtractor
@@ -216,6 +217,7 @@ class OtakuDesu :
     private val filelionsExtractor by lazy { StreamWishExtractor(client, headers) }
     private val yourUploadExtractor by lazy { YourUploadExtractor(client) }
     private val vidHideExtractor by lazy { VidHideExtractor(client, headers) }
+    private val bloggerExtractor by lazy { BloggerExtractor(client) }
 
     private suspend fun getVideosFromEmbed(quality: String, link: String): List<Video> = when {
         "filelions" in link || "filedon" in link -> {
@@ -259,6 +261,18 @@ class OtakuDesu :
 
         "vidhide" in link -> {
             vidHideExtractor.videosFromUrl(link, { "Vidhide - $quality" })
+        }
+
+        "ondesu" in link -> {
+            client.newCall(GET(link, headers)).awaitSuccess().let {
+                val doc = it.useAsJsoup()
+                val iframeSrc = doc.selectFirst("iframe")?.attr("src")
+                if (iframeSrc != null && "blogger.com" in iframeSrc) {
+                    bloggerExtractor.videosFromUrl(iframeSrc, headers).map { video ->
+                        Video(video.url, "Ondesu - ${video.quality.substringAfter("Blogger - ")}", video.videoUrl, video.headers)
+                    }
+                } else emptyList()
+            }
         }
 
         else -> emptyList()
