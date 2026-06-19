@@ -243,6 +243,20 @@ class OtakuDesu :
             yourUploadExtractor.videoFromUrl(url, headers, "YourUpload - $quality")
         }
 
+        "ondesu" in link -> {
+            client.newCall(GET(link, headers)).awaitSuccess().let {
+                val doc = it.useAsJsoup()
+                val iframeSrc = doc.selectFirst("iframe")?.attr("src")
+                if (iframeSrc != null && "blogger.com" in iframeSrc) {
+                    bloggerExtractor.videosFromUrl(iframeSrc, headers).map { video ->
+                        Video(video.url, "Ondesu - ${video.quality.substringAfter("Blogger - ")}", video.videoUrl, video.headers)
+                    }
+                } else {
+                    emptyList()
+                }
+            }
+        }
+
         "desustream" in link -> {
             client.newCall(GET(link, headers)).awaitSuccess().let {
                 val doc = it.useAsJsoup()
@@ -275,19 +289,6 @@ class OtakuDesu :
             vidHideExtractor.videosFromUrl(link, { "Vidhide - $quality" })
         }
 
-        "ondesu" in link -> {
-            client.newCall(GET(link, headers)).awaitSuccess().let {
-                val doc = it.useAsJsoup()
-                val iframeSrc = doc.selectFirst("iframe")?.attr("src")
-                if (iframeSrc != null && "blogger.com" in iframeSrc) {
-                    bloggerExtractor.videosFromUrl(iframeSrc, headers).map { video ->
-                        Video(video.url, "Ondesu - ${video.quality.substringAfter("Blogger - ")}", video.videoUrl, video.headers)
-                    }
-                } else {
-                    emptyList()
-                }
-            }
-        }
 
         else -> emptyList()
     }
